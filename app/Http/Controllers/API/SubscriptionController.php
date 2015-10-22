@@ -3,6 +3,7 @@
 namespace Laravel\Spark\Http\Controllers\API;
 
 use Exception;
+use Illuminate\Support\Facades\Auth;
 use Stripe\Stripe;
 use Laravel\Spark\Spark;
 use Illuminate\Http\Request;
@@ -87,6 +88,33 @@ class SubscriptionController extends Controller
             } else {
                 abort(404);
             }
+        } catch (Exception $e) {
+            abort(404);
+        }
+    }
+
+    /**
+     * Get the billing address associated to the authenticated user.
+     *
+     * Used to populate the update billing address form on settings -> subscription tab.
+     *
+     * @return \Illuminate\Http\Response
+     */
+    public function getBillingAddressForUser()
+    {
+        Stripe::setApiKey(config('services.stripe.secret'));
+
+        try {
+            $customer = StripeCustomer::retrieve(Auth::user()->stripe_id);
+            $card = $customer->sources->retrieve( $customer->default_source );
+            return response()->json([
+                "company" => isset( $customer->metadata->company ) ? $customer->metadata->company : "",
+                "name" => $card->name,
+                "street"  => $card->address_line1,
+                "zip"  => $card->address_zip,
+                "city"  => $card->address_city,
+                "country"  => $card->address_country,
+            ]);
         } catch (Exception $e) {
             abort(404);
         }

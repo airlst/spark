@@ -38,12 +38,14 @@
 				</div>
 			</div>
 
-			<div class="form-group">
-				<label for="zip" class="col-md-3 control-label">ZIP / Postal Code</label>
-				<div class="col-md-6">
-					<input type="text" class="form-control" name="zip" v-model="updateCardForm.zip">
+			@if (! Spark::basedInEU())
+				<div class="form-group">
+					<label for="zip" class="col-md-3 control-label">ZIP / Postal Code</label>
+					<div class="col-md-6">
+						<input type="text" class="form-control" name="zip" v-model="updateCardForm.zip">
+					</div>
 				</div>
-			</div>
+			@endif
 
 			<div class="form-group">
 				<div class="col-md-6 col-md-offset-3">

@@ -16,6 +16,7 @@ Vue.component('spark-subscription-register-screen', {
         if (queryString.invitation) {
             this.getInvitation(queryString.invitation);
         }
+
     },
 
 
@@ -39,12 +40,28 @@ Vue.component('spark-subscription-register-screen', {
 
             cardForm: {
                 number: '', cvc: '', month: '', year: '', zip: '', errors: []
+            },
+
+            addressForm: {
+                customer_type: 'private', company: '', vat_id: '', street: '',
+                city: '', zip: '', country: '', errors: [], valid_vat_id: null
             }
         };
     },
 
+    /*
+     * Configure watched data listeners.
+     */
+    watch: {
+        'selectedPlan': function (value, oldValue) {
+            if (value) {
+                this.initializeVATCalculator();
+            }
+        },
+    },
 
     computed: {
+
         /*
          * Determine if the plans have been loaded from the API.
          */
@@ -68,7 +85,7 @@ Vue.component('spark-subscription-register-screen', {
 
 
         /*
-         * Get all of the plans that have a mnthly interval.
+         * Get all of the plans that have a momnthly interval.
          */
         monthlyPlans: function() {
             return _.filter(this.plans, function(plan) {
@@ -139,6 +156,30 @@ Vue.component('spark-subscription-register-screen', {
 
 
     methods: {
+        /**
+         * Initialize the VAT calculator, when a plan was selected
+         * and Spark is configured to be used within the EU
+         */
+        initializeVATCalculator: function() {
+            if (Spark.basedInEU) {
+                VATCalculator.init("#subscription-address-form");
+            }
+        },
+
+        /**
+         * Calculates the VAT and updates subtotal, total, tax
+         * HTML elements. It's triggered onBlur for the
+         * data-vat="vat-number" input element
+         */
+        calculateVAT: function() {
+            if (Spark.basedInEU) {
+                var self = this;
+                VATCalculator.calculate(function(result) {
+                    self.addressForm.valid_vat_id = result.valid_vat_id;
+                });
+            }
+        },
+
         /*
          * Get all of the Spark plans from the API.
          */
@@ -304,6 +345,7 @@ Vue.component('spark-subscription-register-screen', {
 
             this.cardForm.errors = [];
             this.registerForm.errors = [];
+            this.addressForm.errors = [];
             this.registerForm.registering = true;
 
             if (this.freePlanIsSelected) {
@@ -314,14 +356,17 @@ Vue.component('spark-subscription-register-screen', {
                 Here we will build the payload to send to Stripe, which will
                 return a token. This token can be used to make charges on
                 the user's credit cards instead of storing the numbers.
-            */
+             */
             var payload = {
                 name: this.registerForm.name,
                 number: this.cardForm.number,
                 cvc: this.cardForm.cvc,
                 exp_month: this.cardForm.month,
                 exp_year: this.cardForm.year,
-                address_zip: this.cardForm.zip
+                address_line1: this.addressForm.street,
+                address_city: this.addressForm.city,
+                address_country: this.addressForm.country,
+                address_zip: (Spark.basedInEU) ? this.addressForm.zip : this.cardForm.zip
             };
 
             Stripe.card.createToken(payload, function (status, response) {
@@ -348,13 +393,14 @@ Vue.component('spark-subscription-register-screen', {
                 this.registerForm.invitation = this.invitation.token;
             }
 
-            this.$http.post('/register', this.registerForm)
+            this.$http.post('/register', _({}).extend(this.registerForm, this.addressForm))
                 .success(function(response) {
                     window.location = '/home';
                 })
                 .error(function(errors) {
                     this.registerForm.registering = false;
-                    Spark.setErrorsOnForm(this.registerForm, errors);
+                    Spark.setErrorsOnForm(this.registerForm, _.omit(errors, _.keys(this.addressForm)));
+                    Spark.setErrorsOnForm(this.addressForm,  _.omit(errors, _.keys(this.registerForm)));
                 });
         },
 

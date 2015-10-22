@@ -128,6 +128,43 @@ class SubscriptionController extends Controller
         return $this->users->getCurrentUser();
     }
 
+
+    /**
+     * Update the user's billing address.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\Response
+     */
+    public function updateBillingAddress(Request $request)
+    {
+        $this->validate($request, [
+            'name' => 'required',
+            'street' => 'required',
+            'zip' => 'required',
+            'city' => 'required',
+            'country' => 'required',
+        ]);
+
+        $customer = Auth::user()->subscription()->getStripeCustomer();
+
+        if ($request->has('company')) {
+            $customer->metadata->company = $request->get('company');
+        } else {
+            $customer->metadata->company = null;
+        }
+        $customer->save();
+
+        $card = $customer->sources->retrieve( $customer->default_source );
+
+        $card->name = $request->name;
+        $card->address_line1 = $request->street;
+        $card->address_zip = $request->zip;
+        $card->address_city = $request->city;
+        $card->address_country = $request->country;
+
+        $card->save();
+    }
+
     /**
      * Update the extra billing information for the user.
      *
