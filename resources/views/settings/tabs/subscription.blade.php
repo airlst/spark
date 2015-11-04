@@ -14,6 +14,11 @@
 			<!-- Update Credit Card -->
 			@include('spark::settings.tabs.subscription.card')
 
+			@if (Spark::basedInEU())
+				<!-- Update Billing Address (EU-Only) -->
+				@include('spark::settings.tabs.subscription.billing')
+			@endif
+
 			<!-- Resume Subscription -->
 			@include('spark::settings.tabs.subscription.resume')
 

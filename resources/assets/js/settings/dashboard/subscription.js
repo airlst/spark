@@ -4,6 +4,12 @@ var settingsSubscriptionScreenForms = {
             number: '', cvc: '', month: '', year: '', zip: '',
             errors: [], updating: false, updated: false
         };
+    },
+    updateAddress: function () {
+        return {
+            company: '', name: '', street: '', city: '', zip: '', country: '',
+            errors: [], updating: false, updated: false
+        };
     }
 };
 
@@ -53,11 +59,18 @@ Vue.component('spark-settings-subscription-screen', {
                 number: '', cvc: '', month: '', year: '', zip: '', errors: []
             },
 
+            addressForm: {
+                customer_type: 'private', company: '', vat_id: '', street: '',
+                city: '', zip: '', country: '', errors: [], valid_vat_id: null
+            },
+
             changePlanForm: {
                 plan: '', errors: [], changing: false
             },
 
             updateCardForm: settingsSubscriptionScreenForms.updateCard(),
+
+            updateAddressForm: settingsSubscriptionScreenForms.updateAddress(),
 
             extraBillingInfoForm: {
                 text: '', errors: [], updating: false, updated: false
@@ -283,11 +296,50 @@ Vue.component('spark-settings-subscription-screen', {
             if (this.user.stripe_id) {
                 this.getCoupon();
             }
+            if (this.user.stripe_active) {
+                if (Spark.basedInEU) {
+                    this.getBillingAddress();
+                }
+            }
         }
     },
 
+    /*
+     * Configure watched data listeners.
+     */
+    watch: {
+        'selectedPlan': function (value, oldValue) {
+            if (value) {
+                this.initializeVATCalculator();
+            }
+        },
+    },
 
     methods: {
+        /**
+         * Initialize the VAT calculator, when a plan was selected
+         * and Spark is configured to be used within the EU
+         */
+        initializeVATCalculator: function() {
+            if (Spark.basedInEU) {
+                VATCalculator.init("#subscription-address-form");
+            }
+        },
+
+        /**
+         * Calculates the VAT and updates subtotal, total, tax
+         * HTML elements. It's triggered onBlur for the
+         * data-vat="vat-number" input element
+         */
+        calculateVAT: function() {
+            if (Spark.basedInEU) {
+                var self = this;
+                VATCalculator.calculate(function(result) {
+                    self.addressForm.valid_vat_id = result.valid_vat_id;
+                });
+            }
+        },
+
         /*
          * Get the coupon currently applying to the customer.
          */
@@ -295,6 +347,20 @@ Vue.component('spark-settings-subscription-screen', {
             this.$http.get('spark/api/subscriptions/user/coupon')
                 .success(function (coupon) {
                     this.currentCoupon = coupon;
+                })
+                .error(function () {
+                    //
+                });
+        },
+
+
+        /*
+         * Get the coupon currently applying to the customer.
+         */
+        getBillingAddress: function () {
+            this.$http.get('spark/api/subscriptions/user/billing')
+                .success(function (address) {
+                    _.extend(this.updateAddressForm,address);
                 })
                 .error(function () {
                     //
@@ -333,7 +399,10 @@ Vue.component('spark-settings-subscription-screen', {
                 cvc: this.cardForm.cvc,
                 exp_month: this.cardForm.month,
                 exp_year: this.cardForm.year,
-                address_zip: this.cardForm.zip
+                address_line1: this.addressForm.street,
+                address_city: this.addressForm.city,
+                address_country: this.addressForm.country,
+                address_zip: (Spark.basedInEU) ? this.addressForm.zip : this.cardForm.zip
             };
 
             Stripe.card.createToken(payload, function (status, response) {
@@ -358,7 +427,9 @@ Vue.component('spark-settings-subscription-screen', {
                     this.subscribeForm.subscribing = false;
                 })
                 .error(function (errors) {
-                    Spark.setErrorsOnForm(this.subscribeForm, errors);
+
+                    Spark.setErrorsOnForm(this.subscribeForm, _.omit(errors, _.keys(this.addressForm)));
+                    Spark.setErrorsOnForm(this.addressForm,  _.omit(errors, _.keys(this.subscribeForm)));
                     this.subscribeForm.subscribing = false;
                 });
         },
@@ -450,6 +521,29 @@ Vue.component('spark-settings-subscription-screen', {
                     self.updateCardUsingToken(response.id);
                 }
             });
+        },
+
+
+        /*
+         * Update the user's billing address.
+         */
+        updateBillingAddress: function (e) {
+
+            e.preventDefault();
+
+            this.updateAddressForm.errors = [];
+            this.updateAddressForm.updated = false;
+            this.updateAddressForm.updating = true;
+
+            this.$http.put('settings/user/billing', this.updateAddressForm )
+                .success(function () {
+                    this.updateAddressForm.updated = true;
+                    this.updateAddressForm.updating = false;
+                })
+                .error(function (errors) {
+                    this.updateAddressForm.updating = false;
+                    Spark.setErrorsOnForm(this.updateAddressForm, errors);
+                });
         },
 
 

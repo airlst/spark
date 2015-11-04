@@ -151,6 +151,7 @@ return [
          */
         Laravel\Spark\Providers\SparkServiceProvider::class,
         App\Providers\SparkServiceProvider::class,
+        Mpociot\VatCalculator\VatCalculatorServiceProvider::class,
     ],
 
     /*
@@ -200,6 +201,10 @@ return [
         'Validator' => Illuminate\Support\Facades\Validator::class,
         'View'      => Illuminate\Support\Facades\View::class,
 
+        /**
+         * Spark aliases...
+         */
+        'VatCalculator' => Mpociot\VatCalculator\Facades\VatCalculator::class,
     ],
 
 ];

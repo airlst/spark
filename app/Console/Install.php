@@ -13,7 +13,7 @@ class Install extends Command
      *
      * @var string
      */
-    protected $signature = 'spark:install {--force}';
+    protected $signature = 'spark:install {--force} {--european-union}';
 
     /**
      * The console command description.
@@ -23,12 +23,23 @@ class Install extends Command
     protected $description = 'Install the Spark scaffolding into the application';
 
     /**
+     * Variable to hold the setting if the EU additions should be installed.
+     *
+     * @var bool
+     */
+    protected $basedInEU = false;
+
+    /**
      * Execute the console command.
      *
      * @return mixed
      */
     public function handle()
     {
+        if ($this->option('european-union') || $this->confirm('Would you like to install the EU regulation tax-management helper?')) {
+            $this->basedInEU = true;
+        }
+
         $this->installNpmPackageConfig();
         $this->installGulpFile();
         $this->installServiceProviders();
@@ -148,8 +159,10 @@ class Install extends Command
      */
     protected function installModels()
     {
+        $stubModel = ( $this->basedInEU) ? 'EuropeanUnionUser' : 'User';
+
         copy(
-            SPARK_PATH.'/resources/stubs/app/User.php',
+            SPARK_PATH.'/resources/stubs/app/'.$stubModel.'.php',
             app_path('User.php')
         );
 
@@ -190,6 +203,16 @@ class Install extends Command
             SPARK_PATH.'/resources/views/home.blade.php',
             base_path('resources/views/home.blade.php')
         );
+
+        if ($this->basedInEU) {
+            if (! is_dir('resources/views/vendor/cashier')) {
+                mkdir(base_path('resources/views/vendor/cashier'), 0755, true);
+            }
+            copy(
+                SPARK_PATH.'/resources/stubs/resources/views/receipt.blade.php',
+                base_path('resources/views/vendor/cashier/receipt.blade.php')
+            );
+        }
     }
 
     /**
@@ -216,6 +239,8 @@ class Install extends Command
         if (! is_dir('resources/assets/js')) {
             mkdir(base_path('resources/assets/js'));
         }
+
+        (new Process('php artisan vendor:publish --tag=vatcalculator-spark', base_path()))->setTimeout(null)->run();
 
         if (! is_dir('resources/assets/js/spark')) {
             mkdir(base_path('resources/assets/js/spark'));
@@ -266,7 +291,8 @@ class Install extends Command
             base_path('.env'),
             PHP_EOL.'AUTHY_KEY='.PHP_EOL.PHP_EOL.
             'STRIPE_KEY='.PHP_EOL.
-            'STRIPE_SECRET='.PHP_EOL
+            'STRIPE_SECRET='.PHP_EOL.PHP_EOL.
+            'SPARK_EU='.var_export($this->basedInEU,true).PHP_EOL
         );
     }
 

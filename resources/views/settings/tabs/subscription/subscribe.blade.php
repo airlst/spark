@@ -29,6 +29,11 @@
 		</div>
 	</div>
 
+	<!-- Subscription EU address information -->
+	@if (Spark::basedInEU())
+		@include('spark::settings.tabs.subscription.address')
+	@endif
+
 	<!-- Subscription Billing Information -->
 	<div class="panel panel-default">
 		<div class="panel-heading">
@@ -62,16 +67,82 @@
 						<input type="text" class="form-control" name="year" placeholder="YYYY" maxlength="4" data-stripe="exp-year" v-model="cardForm.year">
 					</div>
 				</div>
+				@if (! Spark::basedInEU())
+					<div class="form-group">
+						<label for="zip" class="col-md-3 control-label">ZIP / Postal Code</label>
+						<div class="col-md-6">
+							<input type="text" class="form-control" name="zip" v-model="cardForm.zip">
+						</div>
+					</div>
 
+					<div class="form-group">
+						<div class="col-md-6 col-md-offset-3">
+							<div class="checkbox">
+								<label>
+									<input type="checkbox" v-model="subscribeForm.terms">
+									I Accept The <a href="/terms" target="_blank">Terms Of Service</a>
+								</label>
+							</div>
+						</div>
+					</div>
+
+					<div class="form-group">
+						<div class="col-md-6 col-md-offset-3">
+							<button type="submit" class="btn btn-primary" v-on="click: subscribe" v-attr="disabled: subscribeForm.subscribing">
+								<span v-if="subscribeForm.subscribing">
+									<i class="fa fa-btn fa-spinner fa-spin"></i> Subscribing
+								</span>
+
+								<span v-if=" ! subscribeForm.subscribing">
+									<i class="fa fa-btn fa-check-circle"></i> Subscribe
+								</span>
+							</button>
+						</div>
+					</div>
+				@endif
+			</form>
+		</div>
+	</div>
+</div>
+
+@if (Spark::basedInEU())
+	<div class="panel panel-default" v-if=" ! user.stripe_active && ! userIsOnGracePeriod && subscribeForm.plan">
+		<div class="panel-heading">
+			Overview
+			<div class="clearfix"></div>
+		</div>
+
+		<div class="panel-body">
+			<form class="form-horizontal" role="form">
 				<div class="form-group">
-					<label for="zip" class="col-md-3 control-label">ZIP / Postal Code</label>
-					<div class="col-md-6">
-						<input type="text" class="form-control" name="zip" v-model="cardForm.zip">
+					<label for="number" class="col-sm-3 control-label">Subtotal</label>
+					<div class="col-sm-6">
+						<div class="form-control-static">
+							$ <span class="vat-subtotal">@{{ selectedPlanPrice }}</span>
+						</div>
 					</div>
 				</div>
 
 				<div class="form-group">
-					<div class="col-md-6 col-md-offset-3">
+					<label for="number" class="col-sm-3 control-label">VAT</label>
+					<div class="col-sm-6">
+						<div class="form-control-static">
+							$ <span class="vat-taxes"></span>
+						</div>
+					</div>
+				</div>
+
+				<div class="form-group">
+					<label for="number" class="col-sm-3 control-label">Total</label>
+					<div class="col-sm-6">
+						<div class="form-control-static">
+							$ <span class="vat-total">@{{ selectedPlanPrice }}</span>
+						</div>
+					</div>
+				</div>
+
+				<div class="form-group">
+					<div class="col-sm-6 col-sm-offset-3">
 						<div class="checkbox">
 							<label>
 								<input type="checkbox" v-model="subscribeForm.terms">
@@ -84,17 +155,17 @@
 				<div class="form-group">
 					<div class="col-md-6 col-md-offset-3">
 						<button type="submit" class="btn btn-primary" v-on="click: subscribe" v-attr="disabled: subscribeForm.subscribing">
-							<span v-if="subscribeForm.subscribing">
-								<i class="fa fa-btn fa-spinner fa-spin"></i> Subscribing
-							</span>
+								<span v-if="subscribeForm.subscribing">
+									<i class="fa fa-btn fa-spinner fa-spin"></i> Subscribing
+								</span>
 
-							<span v-if=" ! subscribeForm.subscribing">
-								<i class="fa fa-btn fa-check-circle"></i> Subscribe
-							</span>
+								<span v-if=" ! subscribeForm.subscribing">
+									<i class="fa fa-btn fa-check-circle"></i> Subscribe
+								</span>
 						</button>
 					</div>
 				</div>
 			</form>
 		</div>
 	</div>
-</div>
+@endif

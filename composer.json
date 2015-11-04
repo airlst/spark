@@ -13,7 +13,8 @@
         "php": ">=5.5.9",
         "laravel/cashier": "~5.0",
         "erusev/parsedown": "~1.0",
-        "guzzlehttp/guzzle": "~6.0"
+        "guzzlehttp/guzzle": "~6.0",
+        "mpociot/vat-calculator": "~1.5"
     },
     "autoload": {
         "psr-4": {

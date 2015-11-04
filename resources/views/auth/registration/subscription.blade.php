@@ -47,10 +47,24 @@
 				@include('spark::auth.registration.subscription.basics')
 			</div>
 
+			<!-- EU address Information -->
+			@if (Spark::basedInEU())
+				<div class="row" v-if=" ! freePlanIsSelected">
+					@include('spark::auth.registration.subscription.address')
+				</div>
+			@endif
+
 			<!-- Billing Information -->
 			<div class="row" v-if=" ! freePlanIsSelected">
 				@include('spark::auth.registration.subscription.billing')
 			</div>
+
+			<!-- EU Payment Overview -->
+			@if (Spark::basedInEU())
+				<div class="row" v-if=" ! freePlanIsSelected">
+					@include('spark::auth.registration.subscription.overview')
+				</div>
+			@endif
 		</div>
 	</div>
 </spark-subscription-register-screen>

@@ -43,6 +43,7 @@ class SparkServiceProvider extends ServiceProvider
     protected function customizeSpark()
     {
         Spark::configure([
+            'inEU' => env('SPARK_EU'),
             'models' => [
                 'teams' => Team::class,
             ]
@@ -56,14 +57,24 @@ class SparkServiceProvider extends ServiceProvider
      */
     protected function customizeRegistration()
     {
-        // Spark::validateRegistrationsWith(function (Request $request) {
-        //     return [
-        //         'name' => 'required|max:255',
-        //         'email' => 'required|email|unique:users',
-        //         'password' => 'required|confirmed|min:6',
-        //         'terms' => 'required|accepted',
-        //     ];
-        // });
+        if (Spark::basedInEU()) {
+            Spark::validateRegistrationsWith(function (Request $request, $withSubscription = false) {
+                $userRules = [
+                    'name'     => 'required|max:255',
+                    'email'    => 'required|email|unique:users',
+                    'password' => 'required|confirmed|min:6',
+                    'terms'    => 'required|accepted',
+                ];
+                $addressRules = [
+                    'street'   => 'required',
+                    'city'     => 'required',
+                    'zip'      => 'required',
+                    'country'  => 'required',
+                    'vat_id'   => 'vat_number',
+                ];
+                return $withSubscription ? array_merge($userRules, $addressRules) : $userRules;
+            });
+        }
 
         // Spark::validateSubscriptionsWith(function (Request $request) {
         //     return [
@@ -76,6 +87,53 @@ class SparkServiceProvider extends ServiceProvider
         // Spark::createUsersWith(function (Request $request) {
         //     // Return New User Instance...
         // });
+
+        /**
+         * To comply with the EU VAT regulations we need to pass
+         * the user's address, IP and company name to stripe.
+         * This data will also be used for the invoices.
+         */
+        if (Spark::basedInEU()) {
+            Spark::createSubscriptionsWith(function (Request $request, $user, $subscription) {
+                /**
+                 * Apply tax rate from the given country.
+                 * If a valid VAT ID is given, the VAT
+                 * rate will be set to 0.
+                 */
+                $user->setTaxForCountry($request->country, $request->has('vat_id'));
+
+                $subscription->create($request->stripe_token, [
+                    'email' => $user->email,
+                    'description' => $user->name,
+                    'metadata' => [
+                        'ip' => $request->getClientIp(),
+                        'company' => $request->company,
+                        'vat_id' => $request->vat_id,
+                        'tax_percent' => $user->getTaxPercent()
+                    ]
+                ]);
+            });
+        }
+
+
+
+        /**
+         * Apply the tax rate of the customer to the invoice
+         * when swapping plans.
+         */
+        if (Spark::basedInEU()) {
+            Spark::swapSubscriptionsWith(function (Request $request, $user) {
+                $user->subscription($request->plan)
+                    ->maintainTrial()->prorate()->swap();
+
+                $customer = $user->subscription()->getStripeCustomer();
+
+                \Stripe\Invoice::create([
+                    'customer' => $customer->id,
+                    'tax_percent' => $customer->metadata->tax_percent
+                ], $user->getStripeKey())->pay();
+            });
+        }
     }
 
     /**

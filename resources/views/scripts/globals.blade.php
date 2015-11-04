@@ -7,6 +7,9 @@
         // Current User ID
         userId: {!! Auth::user() ? Auth::id() : 'null' !!},
 
+        // EU flag
+        basedInEU: {{ Spark::basedInEU() ? 'true' : 'false' }},
+
         // Current Team ID
         @if (Auth::user() && Spark::usingTeams() && Auth::user()->hasTeams())
             currentTeamId: {{ Auth::user()->currentTeam->id }},
